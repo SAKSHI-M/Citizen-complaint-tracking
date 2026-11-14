@@ -69,6 +69,8 @@ export interface Complaint {
   category: ComplaintCategory;
   ward: string;
   locationLabel: string;
+  lat?: number;
+  lng?: number;
   severity: number; // 1-5
   safetyImpact: number; // 1-5
   affectedScope: AffectedScope;
@@ -119,4 +121,4 @@ export interface ResolutionUpdate {
   createdAt: Timestamp | null;
 }
 
-export type WorkspaceView = 'queue' | 'tracker' | 'matrix' | 'submissions';
+export type WorkspaceView = 'queue' | 'map' | 'tracker' | 'matrix' | 'submissions';

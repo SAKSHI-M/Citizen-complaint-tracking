@@ -48,6 +48,14 @@
           "maxLength": 140,
           "description": "Public intersection, corridor, or landmark description."
         },
+        "lat": {
+          "type": "number",
+          "description": "Latitude coordinate (-90 to 90) sourced from Google Maps."
+        },
+        "lng": {
+          "type": "number",
+          "description": "Longitude coordinate (-180 to 180) sourced from Google Maps."
+        },
         "severity": {
           "type": "integer",
           "description": "Technical hazard severity on a 1 to 5 scale."

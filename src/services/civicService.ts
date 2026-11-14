@@ -80,10 +80,25 @@ export interface CreateComplaintInput {
   category: ComplaintCategory;
   ward: string;
   locationLabel: string;
+  lat?: number;
+  lng?: number;
   severity: number;
   safetyImpact: number;
   affectedScope: AffectedScope;
   evidenceImageUrl?: string;
+}
+
+function isValidCoord(lat?: number, lng?: number): boolean {
+  return (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
 }
 
 export async function createComplaint(user: User, input: CreateComplaintInput): Promise<string> {
@@ -129,6 +144,10 @@ export async function createComplaint(user: User, input: CreateComplaintInput): 
   if (input.evidenceImageUrl && input.evidenceImageUrl.trim()) {
     complaintPayload.evidenceImageUrl = clampText(input.evidenceImageUrl, 300);
   }
+  if (isValidCoord(input.lat, input.lng)) {
+    complaintPayload.lat = Number(input.lat!.toFixed(6));
+    complaintPayload.lng = Number(input.lng!.toFixed(6));
+  }
 
   batch.set(complaintRef, complaintPayload);
 
@@ -172,7 +191,7 @@ export async function updateOwnSubmittedComplaint(
 
   try {
     const batch = writeBatch(db);
-    batch.update(complaintRef, {
+    const updatePayload: Record<string, unknown> = {
       title: clampText(input.title, 140),
       description: clampText(input.description, 2000),
       category: input.category,
@@ -185,7 +204,38 @@ export async function updateOwnSubmittedComplaint(
       priorityTier: breakdown.tier,
       slaTargetHours: breakdown.slaTargetHours,
       updatedAt: serverTimestamp(),
-    });
+    };
+    if (isValidCoord(input.lat, input.lng)) {
+      updatePayload.lat = Number(input.lat!.toFixed(6));
+      updatePayload.lng = Number(input.lng!.toFixed(6));
+    }
+    batch.update(complaintRef, updatePayload);
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function updateComplaintCoordinates(
+  complaint: Complaint,
+  lat: number,
+  lng: number,
+  locationLabel?: string
+): Promise<void> {
+  if (!isValidCoord(lat, lng)) return;
+  const complaintRef = doc(db, 'complaints', complaint.id);
+  const path = `complaints/${complaint.id}`;
+  try {
+    const batch = writeBatch(db);
+    const payload: Record<string, unknown> = {
+      lat: Number(lat.toFixed(6)),
+      lng: Number(lng.toFixed(6)),
+      updatedAt: serverTimestamp(),
+    };
+    if (locationLabel && locationLabel.trim().length >= 3) {
+      payload.locationLabel = clampText(locationLabel, 140);
+    }
+    batch.update(complaintRef, payload);
     await batch.commit();
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);

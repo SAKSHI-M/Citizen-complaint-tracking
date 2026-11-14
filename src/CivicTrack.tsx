@@ -8,6 +8,7 @@ import {
   Layers,
   ListFilter,
   LogOut,
+  MapPin,
   Menu,
   Plus,
   Search,
@@ -16,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { CaseDetailDrawer } from './components/CaseDetailDrawer';
+import { ComplaintMapView } from './components/ComplaintMapView';
 import { ComplaintModal } from './components/ComplaintModal';
 import { PriorityMatrixView } from './components/PriorityMatrixView';
 import { ResolutionTrackerView } from './components/ResolutionTrackerView';
@@ -41,7 +43,11 @@ import { formatSlaStatus, SAMPLE_EVIDENCE_IMAGES } from './utils/priorityEngine'
 type StatusSegment = 'all' | 'open' | 'active' | 'resolved';
 type SortOption = 'priority' | 'sla' | 'corroborations' | 'newest';
 
-export const CivicTrack: React.FC = () => {
+interface CivicTrackProps {
+  mapsAvailable?: boolean;
+}
+
+export const CivicTrack: React.FC<CivicTrackProps> = ({ mapsAvailable = false }) => {
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -152,6 +158,8 @@ export const CivicTrack: React.FC = () => {
     category: ComplaintCategory;
     ward: string;
     locationLabel: string;
+    lat?: number;
+    lng?: number;
     severity: number;
     safetyImpact: number;
     affectedScope: AffectedScope;
@@ -558,6 +566,7 @@ export const CivicTrack: React.FC = () => {
 
   const viewLabels: Record<WorkspaceView, string> = {
     queue: 'Priority Queue',
+    map: 'Incident Map',
     tracker: 'Resolution Tracker',
     matrix: 'Priority Matrix',
     submissions: 'My Submissions',
@@ -606,6 +615,7 @@ export const CivicTrack: React.FC = () => {
             {(
               [
                 { id: 'queue', label: 'Priority Queue', icon: ListFilter },
+                { id: 'map', label: 'Incident Map', icon: MapPin },
                 { id: 'tracker', label: 'Resolution Tracker', icon: Layers },
                 { id: 'matrix', label: 'Priority Matrix', icon: SlidersHorizontal },
                 { id: 'submissions', label: 'My Submissions', icon: FileText },
@@ -797,6 +807,14 @@ export const CivicTrack: React.FC = () => {
           {activeView === 'matrix' ? (
             <PriorityMatrixView
               complaints={complaints}
+              onSelectComplaint={(c) => setSelectedComplaintId(c.id)}
+            />
+          ) : activeView === 'map' ? (
+            <ComplaintMapView
+              mapsAvailable={mapsAvailable}
+              complaints={complaints}
+              user={user}
+              isAdmin={isAdmin}
               onSelectComplaint={(c) => setSelectedComplaintId(c.id)}
             />
           ) : activeView === 'tracker' ? (
@@ -1093,6 +1111,7 @@ export const CivicTrack: React.FC = () => {
       {/* Modals & Drawers */}
       <ComplaintModal
         isOpen={modalOpen}
+        mapsAvailable={mapsAvailable}
         editingComplaint={editingComplaint}
         onClose={() => {
           setModalOpen(false);
@@ -1103,6 +1122,7 @@ export const CivicTrack: React.FC = () => {
 
       <CaseDetailDrawer
         complaint={selectedComplaint}
+        mapsAvailable={mapsAvailable}
         user={user}
         isAdmin={isAdmin}
         onClose={() => setSelectedComplaintId(null)}

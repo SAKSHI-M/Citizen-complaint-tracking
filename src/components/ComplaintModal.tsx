@@ -9,9 +9,11 @@ import {
   type ComplaintCategory,
 } from '../types/civic';
 import { calculatePriority, SAMPLE_EVIDENCE_IMAGES } from '../utils/priorityEngine';
+import { PlaceLocationPicker } from './PlaceLocationPicker';
 
 interface ComplaintModalProps {
   isOpen: boolean;
+  mapsAvailable: boolean;
   editingComplaint: Complaint | null;
   onClose: () => void;
   onSubmit: (data: {
@@ -20,6 +22,8 @@ interface ComplaintModalProps {
     category: ComplaintCategory;
     ward: string;
     locationLabel: string;
+    lat?: number;
+    lng?: number;
     severity: number;
     safetyImpact: number;
     affectedScope: AffectedScope;
@@ -36,6 +40,7 @@ const EVIDENCE_PRESETS = [
 
 export const ComplaintModal: React.FC<ComplaintModalProps> = ({
   isOpen,
+  mapsAvailable,
   editingComplaint,
   onClose,
   onSubmit,
@@ -45,6 +50,8 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({
   const [category, setCategory] = useState<ComplaintCategory>('Water & Drainage');
   const [ward, setWard] = useState<string>(WARDS[0]);
   const [locationLabel, setLocationLabel] = useState('');
+  const [lat, setLat] = useState<number | undefined>(undefined);
+  const [lng, setLng] = useState<number | undefined>(undefined);
   const [severity, setSeverity] = useState<number>(3);
   const [safetyImpact, setSafetyImpact] = useState<number>(3);
   const [affectedScope, setAffectedScope] = useState<AffectedScope>('Block Level');
@@ -61,6 +68,8 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({
       setCategory(editingComplaint.category);
       setWard(editingComplaint.ward);
       setLocationLabel(editingComplaint.locationLabel);
+      setLat(editingComplaint.lat);
+      setLng(editingComplaint.lng);
       setSeverity(editingComplaint.severity);
       setSafetyImpact(editingComplaint.safetyImpact);
       setAffectedScope(editingComplaint.affectedScope);
@@ -71,6 +80,8 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({
       setCategory('Water & Drainage');
       setWard(WARDS[0]);
       setLocationLabel('');
+      setLat(undefined);
+      setLng(undefined);
       setSeverity(3);
       setSafetyImpact(3);
       setAffectedScope('Block Level');
@@ -112,6 +123,8 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({
         category,
         ward,
         locationLabel: locationLabel.trim(),
+        lat,
+        lng,
         severity,
         safetyImpact,
         affectedScope,
@@ -228,6 +241,27 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({
               onChange={(e) => setLocationLabel(e.target.value)}
               placeholder="e.g., Elm St & 14th Ave (Avoid entering private home addresses)"
               className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-md focus:outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="block text-xs font-medium text-slate-700">
+              Pin Exact Coordinates on Google Maps (Optional)
+            </span>
+            <PlaceLocationPicker
+              mapsAvailable={mapsAvailable}
+              locationLabel={locationLabel}
+              lat={lat}
+              lng={lng}
+              onLocationChange={(next) => {
+                if (next.locationLabel && !locationLabel.trim()) {
+                  setLocationLabel(next.locationLabel);
+                } else if (next.locationLabel) {
+                  setLocationLabel(next.locationLabel);
+                }
+                setLat(next.lat);
+                setLng(next.lng);
+              }}
             />
           </div>
 

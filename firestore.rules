@@ -125,6 +125,8 @@ service cloud.firestore {
         'assignedCrew',
         'slaTargetHours',
         'evidenceImageUrl',
+        'lat',
+        'lng',
         'isPublic',
         'reporterId',
         'reporterName',
@@ -149,6 +151,8 @@ service cloud.firestore {
       && data.assignedCrew is string && data.assignedCrew.size() >= 2 && data.assignedCrew.size() <= 80
       && data.slaTargetHours is int && data.slaTargetHours >= 1 && data.slaTargetHours <= 720
       && (!('evidenceImageUrl' in data) || (data.evidenceImageUrl is string && data.evidenceImageUrl.size() <= 300))
+      && (!('lat' in data) || ((data.lat is number || data.lat is int) && data.lat >= -90 && data.lat <= 90))
+      && (!('lng' in data) || ((data.lng is number || data.lng is int) && data.lng >= -180 && data.lng <= 180))
       && data.isPublic is bool
       && data.reporterId is string && isValidId(data.reporterId)
       && data.reporterName is string && data.reporterName.size() >= 1 && data.reporterName.size() <= 80
@@ -273,6 +277,9 @@ service cloud.firestore {
               'assignedDepartment',
               'assignedCrew',
               'slaTargetHours',
+              'lat',
+              'lng',
+              'locationLabel',
               'resolvedAt',
               'updatedAt'
             ])
@@ -289,6 +296,8 @@ service cloud.firestore {
               'category',
               'ward',
               'locationLabel',
+              'lat',
+              'lng',
               'severity',
               'safetyImpact',
               'affectedScope',

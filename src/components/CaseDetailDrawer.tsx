@@ -7,6 +7,7 @@ import {
   orderBy,
   query,
 } from 'firebase/firestore';
+import { AdvancedMarker, Map as GoogleMap, Pin } from '@vis.gl/react-google-maps';
 import { ArrowUpRight, Check, FileWarning, Pencil, X } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import {
@@ -31,6 +32,7 @@ import {
 
 interface CaseDetailDrawerProps {
   complaint: Complaint | null;
+  mapsAvailable: boolean;
   user: User;
   isAdmin: boolean;
   onClose: () => void;
@@ -39,6 +41,7 @@ interface CaseDetailDrawerProps {
 
 export const CaseDetailDrawer: React.FC<CaseDetailDrawerProps> = ({
   complaint,
+  mapsAvailable,
   user,
   isAdmin,
   onClose,
@@ -348,6 +351,37 @@ export const CaseDetailDrawer: React.FC<CaseDetailDrawerProps> = ({
               </span>
             </div>
             <p className="text-sm text-slate-700 leading-relaxed">{complaint.description}</p>
+            {mapsAvailable &&
+              typeof complaint.lat === 'number' &&
+              typeof complaint.lng === 'number' && (
+                <div className="pt-2 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>Mapped Location</span>
+                    <span className="font-mono tabular-nums">
+                      {complaint.lat.toFixed(5)}, {complaint.lng.toFixed(5)}
+                    </span>
+                  </div>
+                  <div className="w-full h-40 rounded-md overflow-hidden border border-slate-200 bg-slate-100">
+                    <GoogleMap
+                      mapId="DEMO_MAP_ID"
+                      center={{ lat: complaint.lat, lng: complaint.lng }}
+                      zoom={15}
+                      gestureHandling="cooperative"
+                      disableDefaultUI={true}
+                      zoomControl={true}
+                      internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
+                      style={{ width: '100%', height: '100%' }}
+                    >
+                      <AdvancedMarker
+                        position={{ lat: complaint.lat, lng: complaint.lng }}
+                        title={complaint.locationLabel}
+                      >
+                        <Pin background="#1D4ED8" borderColor="#1E3A8A" glyphColor="#FFFFFF" />
+                      </AdvancedMarker>
+                    </GoogleMap>
+                  </div>
+                </div>
+              )}
           </div>
 
           {/* Transparent Priority Scoring Breakdown */}
