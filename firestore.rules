@@ -1,0 +1,413 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isBootstrappedAdmin() {
+      return isEmailVerified() && request.auth.token.email == 'ssslmadhystha@gmail.com';
+    }
+
+    function isAdmin() {
+      return isEmailVerified() && (
+        isBootstrappedAdmin() ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidCategory(cat) {
+      return cat in [
+        'Water & Drainage',
+        'Traffic & Signals',
+        'Roadways & Potholes',
+        'Street Lighting',
+        'Sanitation & Waste',
+        'Public Parks & Trees'
+      ];
+    }
+
+    function isValidScope(scope) {
+      return scope in [
+        'Isolated Spot',
+        'Block Level',
+        'Neighborhood',
+        'Major Corridor'
+      ];
+    }
+
+    function isValidPriorityTier(tier) {
+      return tier in [
+        'P1 Critical',
+        'P2 High',
+        'P3 Moderate',
+        'P4 Routine'
+      ];
+    }
+
+    function isValidStatus(status) {
+      return status in [
+        'Submitted',
+        'Triaged',
+        'Dispatched',
+        'In Progress',
+        'Resolved',
+        'Closed'
+      ];
+    }
+
+    function isValidComplaint(data) {
+      return data.keys().hasAll([
+        'trackingCode',
+        'title',
+        'description',
+        'category',
+        'ward',
+        'locationLabel',
+        'severity',
+        'safetyImpact',
+        'affectedScope',
+        'corroborationCount',
+        'priorityScore',
+        'priorityTier',
+        'status',
+        'assignedDepartment',
+        'assignedCrew',
+        'slaTargetHours',
+        'isPublic',
+        'reporterId',
+        'reporterName',
+        'createdAt',
+        'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'trackingCode',
+        'title',
+        'description',
+        'category',
+        'ward',
+        'locationLabel',
+        'severity',
+        'safetyImpact',
+        'affectedScope',
+        'corroborationCount',
+        'priorityScore',
+        'priorityTier',
+        'status',
+        'assignedDepartment',
+        'assignedCrew',
+        'slaTargetHours',
+        'evidenceImageUrl',
+        'isPublic',
+        'reporterId',
+        'reporterName',
+        'createdAt',
+        'updatedAt',
+        'resolvedAt'
+      ])
+      && data.trackingCode is string && data.trackingCode.size() >= 4 && data.trackingCode.size() <= 24 && data.trackingCode.matches('^CT-[0-9A-Z\\-]+$')
+      && data.title is string && data.title.size() >= 4 && data.title.size() <= 140
+      && data.description is string && data.description.size() >= 10 && data.description.size() <= 2000
+      && isValidCategory(data.category)
+      && data.ward is string && data.ward.size() >= 2 && data.ward.size() <= 80
+      && data.locationLabel is string && data.locationLabel.size() >= 3 && data.locationLabel.size() <= 140
+      && data.severity is int && data.severity >= 1 && data.severity <= 5
+      && data.safetyImpact is int && data.safetyImpact >= 1 && data.safetyImpact <= 5
+      && isValidScope(data.affectedScope)
+      && data.corroborationCount is int && data.corroborationCount >= 0 && data.corroborationCount <= 1000000
+      && (data.priorityScore is number || data.priorityScore is int) && data.priorityScore >= 0 && data.priorityScore <= 100
+      && isValidPriorityTier(data.priorityTier)
+      && isValidStatus(data.status)
+      && data.assignedDepartment is string && data.assignedDepartment.size() >= 2 && data.assignedDepartment.size() <= 80
+      && data.assignedCrew is string && data.assignedCrew.size() >= 2 && data.assignedCrew.size() <= 80
+      && data.slaTargetHours is int && data.slaTargetHours >= 1 && data.slaTargetHours <= 720
+      && (!('evidenceImageUrl' in data) || (data.evidenceImageUrl is string && data.evidenceImageUrl.size() <= 300))
+      && data.isPublic is bool
+      && data.reporterId is string && isValidId(data.reporterId)
+      && data.reporterName is string && data.reporterName.size() >= 1 && data.reporterName.size() <= 80
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp
+      && (!('resolvedAt' in data) || data.resolvedAt == null || data.resolvedAt is timestamp);
+    }
+
+    function isValidCorroboration(data, complaintId, userId) {
+      return data.keys().hasAll(['userId', 'complaintId', 'createdAt'])
+      && data.keys().hasOnly(['userId', 'complaintId', 'note', 'createdAt'])
+      && data.userId is string && data.userId == userId && isValidId(data.userId)
+      && data.complaintId is string && data.complaintId == complaintId && isValidId(data.complaintId)
+      && (!('note' in data) || (data.note is string && data.note.size() <= 240))
+      && data.createdAt is timestamp;
+    }
+
+    function isValidResolutionUpdate(data, complaintId) {
+      return data.keys().hasAll([
+        'complaintId',
+        'authorId',
+        'authorName',
+        'authorRole',
+        'actionType',
+        'fromStatus',
+        'toStatus',
+        'note',
+        'isPublic',
+        'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'complaintId',
+        'authorId',
+        'authorName',
+        'authorRole',
+        'actionType',
+        'fromStatus',
+        'toStatus',
+        'note',
+        'isPublic',
+        'createdAt'
+      ])
+      && data.complaintId is string && data.complaintId == complaintId && isValidId(data.complaintId)
+      && data.authorId is string && isValidId(data.authorId)
+      && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80
+      && data.authorRole in ['Citizen', 'Dispatcher', 'Field Lead']
+      && data.actionType in ['Filed', 'Triaged', 'Dispatched', 'Status Change', 'Field Note', 'Resolved', 'Closed']
+      && data.fromStatus is string && data.fromStatus.size() >= 1 && data.fromStatus.size() <= 32
+      && data.toStatus is string && data.toStatus.size() >= 1 && data.toStatus.size() <= 32
+      && data.note is string && data.note.size() >= 2 && data.note.size() <= 600
+      && data.isPublic is bool
+      && data.createdAt is timestamp;
+    }
+
+    function isValidAdmin(data, userId) {
+      return data.keys().hasAll(['userId', 'email', 'role', 'createdAt'])
+      && data.keys().hasOnly(['userId', 'email', 'role', 'createdAt'])
+      && data.userId is string && data.userId == userId && isValidId(data.userId)
+      && data.email is string && data.email.size() >= 3 && data.email.size() <= 140
+      && data.role in ['Dispatcher', 'Admin']
+      && data.createdAt is timestamp;
+    }
+
+    function isValidPrivateProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'updatedAt'])
+      && data.keys().hasOnly(['uid', 'displayName', 'email', 'wardPreference', 'updatedAt'])
+      && data.uid is string && data.uid == userId && isValidId(data.uid)
+      && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+      && data.email is string && data.email.size() >= 3 && data.email.size() <= 140
+      && (!('wardPreference' in data) || (data.wardPreference is string && data.wardPreference.size() <= 80))
+      && data.updatedAt is timestamp;
+    }
+
+    // Complaints Collection
+    match /complaints/{complaintId} {
+      allow get: if isSignedIn() && isValidId(complaintId) && (
+        existing().isPublic == true ||
+        existing().reporterId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow list: if isSignedIn() && (
+        resource.data.isPublic == true ||
+        resource.data.reporterId == request.auth.uid ||
+        isBootstrappedAdmin()
+      );
+
+      allow create: if isEmailVerified()
+        && isValidId(complaintId)
+        && isValidComplaint(incoming())
+        && incoming().reporterId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && incoming().isPublic == true
+        && (
+          isAdmin() || (
+            incoming().status == 'Submitted' &&
+            incoming().corroborationCount == 0 &&
+            incoming().assignedDepartment == 'Unassigned' &&
+            incoming().assignedCrew == 'Pending Dispatch'
+          )
+        );
+
+      allow update: if isEmailVerified()
+        && isValidId(complaintId)
+        && isValidComplaint(incoming())
+        && incoming().reporterId == existing().reporterId
+        && incoming().createdAt == existing().createdAt
+        && incoming().trackingCode == existing().trackingCode
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Admin/Dispatcher Triage, Assignment, Status Progression, or Resolution
+          (
+            isAdmin() &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'severity',
+              'safetyImpact',
+              'affectedScope',
+              'priorityScore',
+              'priorityTier',
+              'status',
+              'assignedDepartment',
+              'assignedCrew',
+              'slaTargetHours',
+              'resolvedAt',
+              'updatedAt'
+            ])
+          )
+          ||
+          // Action 2: Reporter edits own complaint while still in Submitted state
+          (
+            existing().reporterId == request.auth.uid &&
+            existing().status == 'Submitted' &&
+            incoming().status == 'Submitted' &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'title',
+              'description',
+              'category',
+              'ward',
+              'locationLabel',
+              'severity',
+              'safetyImpact',
+              'affectedScope',
+              'priorityScore',
+              'priorityTier',
+              'slaTargetHours',
+              'updatedAt'
+            ])
+          )
+          ||
+          // Action 3: Citizen atomic corroboration (+1 count + recalculated priority) when not Closed
+          (
+            existing().isPublic == true &&
+            existing().status != 'Closed' &&
+            !exists(/databases/$(database)/documents/complaints/$(complaintId)/corroborations/$(request.auth.uid)) &&
+            existsAfter(/databases/$(database)/documents/complaints/$(complaintId)/corroborations/$(request.auth.uid)) &&
+            incoming().corroborationCount == existing().corroborationCount + 1 &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'corroborationCount',
+              'priorityScore',
+              'priorityTier',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isAdmin() && isValidId(complaintId);
+
+      // Corroborations Subcollection (One per user, atomic with parent increment)
+      match /corroborations/{userId} {
+        allow get: if isSignedIn() && isValidId(complaintId) && isValidId(userId) && (
+          isOwner(userId) ||
+          get(/databases/$(database)/documents/complaints/$(complaintId)).data.isPublic == true ||
+          isAdmin()
+        );
+
+        allow list: if isSignedIn() && (
+          resource.data.userId == request.auth.uid ||
+          isBootstrappedAdmin()
+        );
+
+        allow create: if isEmailVerified()
+          && isValidId(complaintId)
+          && isValidId(userId)
+          && isOwner(userId)
+          && isValidCorroboration(incoming(), complaintId, userId)
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/complaints/$(complaintId))
+          && get(/databases/$(database)/documents/complaints/$(complaintId)).data.isPublic == true
+          && get(/databases/$(database)/documents/complaints/$(complaintId)).data.status != 'Closed'
+          && getAfter(/databases/$(database)/documents/complaints/$(complaintId)).data.corroborationCount
+             == get(/databases/$(database)/documents/complaints/$(complaintId)).data.corroborationCount + 1;
+
+        allow update, delete: if false;
+      }
+
+      // Resolution Audit Log Subcollection (Append-only)
+      match /updates/{updateId} {
+        allow get: if isSignedIn() && isValidId(complaintId) && isValidId(updateId) && (
+          existing().isPublic == true ||
+          get(/databases/$(database)/documents/complaints/$(complaintId)).data.reporterId == request.auth.uid ||
+          isAdmin()
+        );
+
+        allow list: if isSignedIn() && (
+          resource.data.isPublic == true ||
+          resource.data.authorId == request.auth.uid ||
+          isBootstrappedAdmin()
+        );
+
+        allow create: if isEmailVerified()
+          && isValidId(complaintId)
+          && isValidId(updateId)
+          && isValidResolutionUpdate(incoming(), complaintId)
+          && incoming().authorId == request.auth.uid
+          && incoming().createdAt == request.time
+          && existsAfter(/databases/$(database)/documents/complaints/$(complaintId))
+          && getAfter(/databases/$(database)/documents/complaints/$(complaintId)).data.isPublic == incoming().isPublic
+          && (
+            (isAdmin() && incoming().authorRole in ['Dispatcher', 'Field Lead', 'Citizen']) ||
+            (
+              !isAdmin() &&
+              incoming().authorRole == 'Citizen' &&
+              incoming().actionType in ['Filed', 'Field Note'] &&
+              getAfter(/databases/$(database)/documents/complaints/$(complaintId)).data.status != 'Closed' &&
+              (
+                getAfter(/databases/$(database)/documents/complaints/$(complaintId)).data.reporterId == request.auth.uid ||
+                incoming().actionType == 'Field Note'
+              )
+            )
+          );
+
+        allow update, delete: if false;
+      }
+    }
+
+    // Trusted Admin / Dispatcher Roster
+    match /admins/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create, update: if isAdmin()
+        && isValidId(userId)
+        && isValidAdmin(incoming(), userId)
+        && incoming().createdAt == request.time;
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // Isolated PII User Profile (Split Collection Strategy)
+    match /users/{userId}/private/{docId} {
+      allow get: if isSignedIn() && isValidId(userId) && isValidId(docId) && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && (request.auth.uid == userId || isBootstrappedAdmin());
+      allow create, update: if isEmailVerified()
+        && isValidId(userId)
+        && isValidId(docId)
+        && isOwner(userId)
+        && docId == 'profile'
+        && isValidPrivateProfile(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow delete: if isOwner(userId) && isValidId(userId) && isValidId(docId);
+    }
+  }
+}

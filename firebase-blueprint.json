@@ -1,0 +1,363 @@
+{
+  "entities": {
+    "Complaint": {
+      "title": "Complaint",
+      "description": "A public citizen infrastructure or civic service complaint with weighted prioritization and SLA tracking.",
+      "type": "object",
+      "properties": {
+        "trackingCode": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 24,
+          "pattern": "^CT-[0-9A-Z\\-]+$",
+          "description": "Human-readable tracking reference code (e.g., CT-2041)."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 140,
+          "description": "Concise summary of the civic complaint."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000,
+          "description": "Detailed report of the hazard, location context, and observed impact."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Water & Drainage",
+            "Traffic & Signals",
+            "Roadways & Potholes",
+            "Street Lighting",
+            "Sanitation & Waste",
+            "Public Parks & Trees"
+          ],
+          "description": "Municipal service domain category."
+        },
+        "ward": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Administrative ward or district name."
+        },
+        "locationLabel": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140,
+          "description": "Public intersection, corridor, or landmark description."
+        },
+        "severity": {
+          "type": "integer",
+          "description": "Technical hazard severity on a 1 to 5 scale."
+        },
+        "safetyImpact": {
+          "type": "integer",
+          "description": "Immediate public safety risk on a 1 to 5 scale."
+        },
+        "affectedScope": {
+          "type": "string",
+          "enum": [
+            "Isolated Spot",
+            "Block Level",
+            "Neighborhood",
+            "Major Corridor"
+          ],
+          "description": "Estimated geographic footprint of impact."
+        },
+        "corroborationCount": {
+          "type": "integer",
+          "description": "Total number of verified citizen corroborations."
+        },
+        "priorityScore": {
+          "type": "number",
+          "description": "Computed weighted priority index (0-100)."
+        },
+        "priorityTier": {
+          "type": "string",
+          "enum": [
+            "P1 Critical",
+            "P2 High",
+            "P3 Moderate",
+            "P4 Routine"
+          ],
+          "description": "Derived priority tier."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Submitted",
+            "Triaged",
+            "Dispatched",
+            "In Progress",
+            "Resolved",
+            "Closed"
+          ],
+          "description": "Current resolution lifecycle state."
+        },
+        "assignedDepartment": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Responsible municipal department."
+        },
+        "assignedCrew": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Assigned field response crew or unit."
+        },
+        "slaTargetHours": {
+          "type": "integer",
+          "description": "Target SLA turnaround hours based on priority tier."
+        },
+        "evidenceImageUrl": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Optional field inspection asset URL."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Whether the complaint is visible on the public transparency queue."
+        },
+        "reporterId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the citizen who filed the complaint."
+        },
+        "reporterName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Public display name of the reporting citizen."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when complaint was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the latest update."
+        },
+        "resolvedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Optional timestamp when marked Resolved or Closed."
+        }
+      },
+      "required": [
+        "trackingCode",
+        "title",
+        "description",
+        "category",
+        "ward",
+        "locationLabel",
+        "severity",
+        "safetyImpact",
+        "affectedScope",
+        "corroborationCount",
+        "priorityScore",
+        "priorityTier",
+        "status",
+        "assignedDepartment",
+        "assignedCrew",
+        "slaTargetHours",
+        "isPublic",
+        "reporterId",
+        "reporterName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Corroboration": {
+      "title": "Corroboration",
+      "description": "Single-user corroboration record tied atomically to a complaint counter increment.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "complaintId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "complaintId",
+        "createdAt"
+      ]
+    },
+    "ResolutionUpdate": {
+      "title": "ResolutionUpdate",
+      "description": "Append-only audit log entry tracking triage, dispatch, field notes, and resolution milestones.",
+      "type": "object",
+      "properties": {
+        "complaintId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "authorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "authorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "authorRole": {
+          "type": "string",
+          "enum": ["Citizen", "Dispatcher", "Field Lead"]
+        },
+        "actionType": {
+          "type": "string",
+          "enum": [
+            "Filed",
+            "Triaged",
+            "Dispatched",
+            "Status Change",
+            "Field Note",
+            "Resolved",
+            "Closed"
+          ]
+        },
+        "fromStatus": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "toStatus": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "note": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 600
+        },
+        "isPublic": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "complaintId",
+        "authorId",
+        "authorName",
+        "authorRole",
+        "actionType",
+        "fromStatus",
+        "toStatus",
+        "note",
+        "isPublic",
+        "createdAt"
+      ]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted municipal dispatcher or administrator authorization record.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140
+        },
+        "role": {
+          "type": "string",
+          "enum": ["Dispatcher", "Admin"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "email", "role", "createdAt"]
+    },
+    "UserPrivateProfile": {
+      "title": "UserPrivateProfile",
+      "description": "Isolated PII profile accessible strictly to the owning user.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140
+        },
+        "wardPreference": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "email", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/complaints/{complaintId}": {
+      "schema": { "$ref": "#/entities/Complaint" },
+      "description": "Primary citizen complaint records and priority scores."
+    },
+    "/complaints/{complaintId}/corroborations/{userId}": {
+      "schema": { "$ref": "#/entities/Corroboration" },
+      "description": "One-per-user corroborations bound atomically to the parent complaint counter."
+    },
+    "/complaints/{complaintId}/updates/{updateId}": {
+      "schema": { "$ref": "#/entities/ResolutionUpdate" },
+      "description": "Immutable resolution audit log entries for each complaint."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Trusted municipal dispatcher/admin roster."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivateProfile" },
+      "description": "Owner-isolated PII user profile documents."
+    }
+  }
+}
